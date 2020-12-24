@@ -16,6 +16,7 @@ from common import create_symlinks, execute_cmd_n_get_output, get_env_var, \
     get_aps_bsp_pkg_abs_path, release_dir, \
     execute_cmd_n_get_output_2, delete_files, get_path_relative_to_user_home, \
     get_from_advance_setting_dict
+from constants import bf2556x_1t
 from drivers import load_and_verify_kernel_modules
 
 
@@ -140,7 +141,11 @@ def ask_user_for_building_sde():
         print("You selected not to build SDE.")
 
 
-diff_file = 'bf2556x_1t.diff'
+def get_diff_file_name():
+    if get_switch_model() == bf2556x_1t:
+        'bf2556x_1t.diff'
+    else:
+        return 'bf6064x_t.diff'
 
 
 def prepare_bsp_pkg():
@@ -154,7 +159,7 @@ def prepare_bsp_pkg():
     execute_cmd_n_get_output_2(
         'git --git-dir {0}/.git diff {1} {2} -- \':!./platforms/apsn/\' \':!.idea/\' \':!.gitignore\' > {3}'.
             format(bsp_dev_abs, earliest_commit_hash, latest_commit_hash,
-                   bsp_dev_abs + '/' + diff_file))
+                   bsp_dev_abs + '/' + get_diff_file_name()))
 
     latest_commit_hash_short = execute_cmd_n_get_output_2(
         'git --git-dir {0}/.git rev-parse --short HEAD'.format(bsp_dev_abs))
@@ -171,7 +176,7 @@ def prepare_bsp_pkg():
         delete_files(bsp_rel_dir)
         os.mkdir(bsp_rel_dir)
 
-    shutil.move(bsp_dev_abs + '/' + diff_file, bsp_rel_dir + '/' + diff_file)
+    shutil.move(bsp_dev_abs + '/' + get_diff_file_name(), bsp_rel_dir + '/' + get_diff_file_name())
     shutil.copytree(bsp_dev_abs + '/platforms/apsn/', bsp_rel_dir + '/apsn')
     shutil.make_archive(bsp_rel_dir, 'zip', bsp_rel_dir)
 
@@ -286,7 +291,7 @@ def install_switch_bsp():
     ref_bsp_tar.close()
     os.chdir(bf_pltfm_dir)
     os.system('patch -p1 < {0}/{1}'.format(str(
-        Path(aps_bsp_installation_file).parent), diff_file))
+        Path(aps_bsp_installation_file).parent), get_diff_file_name()))
     # os.environ['BSP'] = os.getcwd()
     # print("BSP home directory set to {}".format(os.environ['BSP']))
     os.environ['BSP_INSTALL'] = get_env_var('SDE_INSTALL')
@@ -296,15 +301,15 @@ def install_switch_bsp():
 
     os.system("autoreconf && autoconf")
     os.system("chmod +x ./autogen.sh")
-    #os.system("chmod +x ./configure")
+    bsp_config_cmd=''
     if get_switch_model() == constants.bf2556x_1t:
-        execute_cmd(
-            "CFLAGS=-Wno-error ./configure --prefix={} --enable-thrift --with-tof-brgup-plat".format(
-                os.environ['BSP_INSTALL']))
+        bsp_config_cmd="CFLAGS=-Wno-error ./configure --prefix={} --enable-thrift --with-tof-brgup-plat".format(
+                os.environ['BSP_INSTALL'])
     else:
-        execute_cmd(
-            "CFLAGS=-Wno-error ./configure --prefix={} --enable-thrift".format(
-                os.environ['BSP_INSTALL']))
+        bsp_config_cmd="CFLAGS=-Wno-error ./configure --prefix={} --enable-thrift".format(
+                os.environ['BSP_INSTALL'])
+    print('Executing BSP config command {}'.format(bsp_config_cmd))
+    execute_cmd(bsp_config_cmd)
     os.system("make")
     os.system("sudo make install")
     os.chdir(dname)
@@ -325,10 +330,10 @@ if __name__ == '__main__':
 def get_default_bsp_dev_path():
     if get_switch_model() == constants.bf2556x_1t:
         return get_path_relative_to_user_home(
-            '/bsp/bf-reference-bsp-9.2.0-BF2556')
+            '/bsp/bf-reference-bsp-9.3.0-BF2556')
     elif get_switch_model() == constants.bf6064x_t:
         return get_path_relative_to_user_home(
-            '/bsp/bf-reference-bsp-9.2.0-BF6064')
+            '/bsp/bf-reference-bsp-9.3.0-BF6064')
     else:
         print('Development BSp can\'t be retrieved for switch model'.
               format(get_switch_model()))
